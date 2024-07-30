@@ -20,8 +20,22 @@ resource "hcp_hvn" "example" {
   cidr_block = "172.25.16.0/20"
 }
 
+
+# VPC Peering Connection in HCP
+resource "hcp_aws_network_peering" "example" {
+  hvn_id          = hcp_hvn.example.hvn_id
+  peering_id      = "dev"
+  peer_vpc_id     = aws_vpc.main.id
+  peer_account_id = aws_vpc.main.owner_id
+  peer_vpc_region = "us-west-2"
+}
+
+
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
+}
+data "aws_arn" "main" {
+  arn = aws_vpc.main.arn
 }
 
 # AWS VPC Creation: Creates an AWS VPC and a subnet.
@@ -30,32 +44,14 @@ resource "aws_subnet" "main" {
   cidr_block = "10.0.1.0/24"
 }
 
-# VPC Peering Connection: Establishes a peering connection between the AWS VPC and the HCP VPC.
-resource "aws_vpc_peering_connection" "example" {
-  vpc_id        = aws_vpc.main.id
-  peer_vpc_id   = hcp_hvn.example.aws_peering_vpc_id
-  peer_owner_id = hcp_hvn.example.aws_account_id
-  peer_region   = "us-west-2"
-
-  auto_accept = false
+resource "hcp_hvn_route" "main-to-dev" {
+  hvn_link         = hcp_hvn.example.self_link
+  hvn_route_id     = "main-to-dev"
+  destination_cidr = "172.31.0.0/16"
+  target_link      = hcp_aws_network_peering.example.self_link
 }
 
-# Peering Connection Accepter: Accepts the peering connection on the AWS side.
-resource "aws_vpc_peering_connection_accepter" "example" {
-  vpc_peering_connection_id = aws_vpc_peering_connection.example.id
+resource "aws_vpc_peering_connection_accepter" "peer" {
+  vpc_peering_connection_id = hcp_aws_network_peering.example.provider_peering_id
   auto_accept               = true
-  vpc_id                    = hcp_hvn.example.aws_peering_vpc_id
-}
-
-# Route Tables Update: Adds routes to the route tables in both VPCs to allow traffic flow.
-
-resource "aws_route" "to_hcp" {
-  route_table_id            = aws_vpc.main.main_route_table_id
-  destination_cidr_block    = hcp_hvn.example.cidr_block
-  vpc_peering_connection_id = aws_vpc_peering_connection.example.id
-}
-
-resource "hcp_aws_network_peering_route" "example" {
-  hvn_id      = hcp_hvn.example.id
-  destination = aws_vpc.main.cidr_block
 }

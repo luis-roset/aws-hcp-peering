@@ -30,7 +30,7 @@ resource "hcp_aws_network_peering" "example" {
   peer_vpc_region = "us-west-2"
 }
 
-
+# AWS VPC Creation: Creates an AWS VPC.
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
 }
@@ -38,12 +38,13 @@ data "aws_arn" "main" {
   arn = aws_vpc.main.arn
 }
 
-# AWS VPC Creation: Creates an AWS VPC and a subnet.
+# AWS Subnet Creation: Creates an AWS subnet.
 resource "aws_subnet" "main" {
   vpc_id     = aws_vpc.main.id
   cidr_block = "10.0.1.0/24"
 }
 
+# HCP HVN Route Creation: Creates route between the hvn and the aws network.
 resource "hcp_hvn_route" "main-to-dev" {
   hvn_link         = hcp_hvn.example.self_link
   hvn_route_id     = "main-to-dev"
@@ -51,6 +52,7 @@ resource "hcp_hvn_route" "main-to-dev" {
   target_link      = hcp_aws_network_peering.example.self_link
 }
 
+# AWS VPC Accepter: Resource to accept the connection from the AWS side.
 resource "aws_vpc_peering_connection_accepter" "peer" {
   vpc_peering_connection_id = hcp_aws_network_peering.example.provider_peering_id
   auto_accept               = true
